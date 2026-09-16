@@ -24,9 +24,15 @@ help; Cx/Cy and pitch explanations; hybrid bonding analysis coverage.
   square canvas 760×760, help text, and no console errors.
 - Synthetic measured overlay recovered X/Y translation 12/-8 nm,
   magnification 2/4 ppm, rotation 3 µrad, zero affine residual.
-- Unit regression suite covers statistics, physical scaling and affine recovery.
+- All 13 regression tests passed; coverage includes statistics, physical scaling,
+  affine recovery and worker export payloads.
 - Browser download-event detection timed out; worker export payloads are tested.
-- Deployment pending final commit and Render manual deployment.
+- Release `16955c6` pushed to main and manually deployed on Render.
+- Render deployment `dep-dal682m7bikc73ehekkg`: Deploy succeeded | Live,
+  2026-09-16 18:40 KST, duration 16.7 seconds.
+- Production index.html, app.mjs, core.mjs, worker.mjs, statistics.mjs,
+  analysis-ui.mjs and analysis-ui.css match the tested local release.
+- Site: https://zygo-ipd-lab.onrender.com
 
 ## Requires real metrology / not yet validated
 - Calibration of shape slope to measured displacement in nm.
