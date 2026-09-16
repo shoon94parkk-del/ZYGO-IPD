@@ -1,3 +1,4 @@
+import { statistics } from './statistics.mjs';
 export const WAFER_DIAMETER_MM = 300;
 
 export function parseZygoXYZ(text, sourceName = 'measurement.xyz') {
@@ -111,7 +112,7 @@ export function decomposeRadialTangential(ipdX, ipdY, width, height) {
     const i = y * width + x;
     if (!Number.isFinite(ipdX[i]) || !Number.isFinite(ipdY[i])) continue;
     const dx = x - cx, dy = y - cy, r = Math.hypot(dx, dy);
-    if (r < 1e-12) { radial[i] = 0; tangential[i] = 0; continue; }
+    if (r < 1e-12) continue;
     const ux = dx / r, uy = dy / r;
     radial[i] = ipdX[i] * ux + ipdY[i] * uy;
     tangential[i] = -ipdX[i] * uy + ipdY[i] * ux;
@@ -188,5 +189,5 @@ export function fitLowOrderCorrection(ipdX, ipdY, width, height, order = 2, maxS
   return { fittedX, fittedY, residualX, residualY, residualMagnitude, coeffX, coeffY, usedSamples: used };
 }
 
-export function fieldMetrics(x, y) { let sumSq = 0, max = 0; const mags = []; for (let i = 0; i < x.length; i += 1) { if (!Number.isFinite(x[i]) || !Number.isFinite(y[i])) continue; const m = Math.hypot(x[i], y[i]); sumSq += m * m; if (m > max) max = m; mags.push(m); } if (!mags.length) return { rms: Number.NaN, max: Number.NaN, p95: Number.NaN, count: 0 }; mags.sort((a, b) => a - b); return { rms: Math.sqrt(sumSq / mags.length), max, p95: mags[Math.min(mags.length - 1, Math.floor(0.95 * (mags.length - 1)))], count: mags.length }; }
+export function fieldMetrics(x, y) { const mags=[];for(let i=0;i<x.length;i++)if(Number.isFinite(x[i])&&Number.isFinite(y[i]))mags.push(Math.hypot(x[i],y[i]));return statistics(mags); }
 export function finiteRange(values, lowQ = 0.02, highQ = 0.98) { const a = []; for (const v of values) if (Number.isFinite(v)) a.push(v); if (!a.length) return { min: 0, max: 1 }; a.sort((x, y) => x - y); const lo = a[Math.floor((a.length - 1) * lowQ)], hi = a[Math.floor((a.length - 1) * highQ)]; return lo === hi ? { min: lo - 1, max: hi + 1 } : { min: lo, max: hi }; }
