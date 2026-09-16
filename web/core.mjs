@@ -103,6 +103,71 @@ export function computeIPD(zUm, width, height, pitchMm, coeffX = 1, coeffY = 1, 
   return { zUsed, dzDx: grad.dx, dzDy: grad.dy, ipdX, ipdY, magnitude };
 }
 
+export function decomposeRadialTangential(ipdX, ipdY, width, height) {
+  const radial = new Float64Array(ipdX.length), tangential = new Float64Array(ipdX.length);
+  radial.fill(Number.NaN); tangential.fill(Number.NaN);
+  const cx = (width - 1) / 2, cy = (height - 1) / 2;
+  for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) {
+    const i = y * width + x;
+    if (!Number.isFinite(ipdX[i]) || !Number.isFinite(ipdY[i])) continue;
+    const dx = x - cx, dy = y - cy, r = Math.hypot(dx, dy);
+    if (r < 1e-12) { radial[i] = 0; tangential[i] = 0; continue; }
+    const ux = dx / r, uy = dy / r;
+    radial[i] = ipdX[i] * ux + ipdY[i] * uy;
+    tangential[i] = -ipdX[i] * uy + ipdY[i] * ux;
+  }
+  return { radial, tangential };
+}
+
+export function radialBandMetrics(ipdX, ipdY, width, height, pitchMm, waferRadiusMm = 150, bands = [[0, .6], [.6, .85], [.85, 1]]) {
+  const sums = bands.map(() => ({ count: 0, sumSq: 0, max: 0 })), cx = (width - 1) / 2, cy = (height - 1) / 2;
+  for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) {
+    const i = y * width + x;
+    if (!Number.isFinite(ipdX[i]) || !Number.isFinite(ipdY[i])) continue;
+    const rn = Math.hypot((x - cx) * pitchMm, (y - cy) * pitchMm) / waferRadiusMm;
+    const bi = bands.findIndex(([lo, hi], index) => rn >= lo && (rn < hi || (index === bands.length - 1 && rn <= hi)));
+    if (bi < 0) continue;
+    const m = Math.hypot(ipdX[i], ipdY[i]), s = sums[bi]; s.count += 1; s.sumSq += m * m; s.max = Math.max(s.max, m);
+  }
+  return sums.map((s, i) => ({ label: i === 0 ? 'Center' : i === sums.length - 1 ? 'Edge' : 'Mid', fromRadius: bands[i][0], toRadius: bands[i][1], count: s.count, rms: s.count ? Math.sqrt(s.sumSq / s.count) : Number.NaN, max: s.count ? s.max : Number.NaN }));
+}
+
+const ZERNIKE_MODES = [
+  ['Piston', () => 1],
+  ['Tilt X', (x) => x], ['Tilt Y', (_x, y) => y],
+  ['Defocus', (x, y) => 2 * (x*x + y*y) - 1],
+  ['Astig 0°', (x, y) => x*x - y*y], ['Astig 45°', (x, y) => 2*x*y],
+  ['Coma X', (x, y) => x * (3*(x*x + y*y) - 2)], ['Coma Y', (x, y) => y * (3*(x*x + y*y) - 2)],
+  ['Trefoil X', (x, y) => x * (x*x - 3*y*y)], ['Trefoil Y', (x, y) => y * (3*x*x - y*y)],
+  ['Spherical', (x, y) => 6*(x*x + y*y)**2 - 6*(x*x + y*y) + 1],
+  ['Quadrafoil 0°', (x, y) => x**4 - 6*x*x*y*y + y**4], ['Quadrafoil 45°', (x, y) => 4*x*y*(x*x-y*y)]
+];
+
+export function decomposeZernike(z, width, height, pitchMm, waferRadiusMm = 150, maxSamples = 60000) {
+  const n = ZERNIKE_MODES.length, ata = Array.from({ length: n }, () => new Float64Array(n)), atb = new Float64Array(n);
+  const cx = (width - 1) / 2, cy = (height - 1) / 2;
+  let valid = 0; for (const v of z) if (Number.isFinite(v)) valid += 1;
+  const stride = Math.max(1, Math.floor(valid / maxSamples)); let seen = 0, used = 0;
+  for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) {
+    const i = y * width + x, v = z[i]; if (!Number.isFinite(v) || (seen++ % stride) !== 0) continue;
+    const xn = (x - cx) * pitchMm / waferRadiusMm, yn = (y - cy) * pitchMm / waferRadiusMm;
+    if (xn*xn + yn*yn > 1.03) continue;
+    const b = ZERNIKE_MODES.map(([, fn]) => fn(xn, yn));
+    for (let r = 0; r < n; r += 1) { atb[r] += b[r] * v; for (let c = 0; c < n; c += 1) ata[r][c] += b[r] * b[c]; }
+    used += 1;
+  }
+  for (let i = 0; i < n; i += 1) ata[i][i] += 1e-10;
+  const coeff = solveLinear(ata, atb), modes = ZERNIKE_MODES.map(([name], i) => ({ name, coefficientUm: coeff[i] }));
+  let sumSq = 0, count = 0;
+  for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) {
+    const i = y * width + x, v = z[i]; if (!Number.isFinite(v)) continue;
+    const xn = (x - cx) * pitchMm / waferRadiusMm, yn = (y - cy) * pitchMm / waferRadiusMm; if (xn*xn + yn*yn > 1.03) continue;
+    let fit = 0; for (let k = 0; k < n; k += 1) fit += coeff[k] * ZERNIKE_MODES[k][1](xn, yn);
+    sumSq += (v - fit) ** 2; count += 1;
+  }
+  return { modes, usedSamples: used, residualRmsUm: count ? Math.sqrt(sumSq / count) : Number.NaN };
+}
+
 function basis(x, y, order) { const out = []; for (let degree = 0; degree <= order; degree += 1) for (let px = 0; px <= degree; px += 1) { const py = degree - px; out.push((x ** px) * (y ** py)); } return out; }
 function solveLinear(matrix, vector) {
   const n = vector.length, a = Array.from({ length: n }, (_, r) => Float64Array.from([...matrix[r], vector[r]]));
@@ -111,7 +176,7 @@ function solveLinear(matrix, vector) {
 }
 
 export function fitLowOrderCorrection(ipdX, ipdY, width, height, order = 2, maxSamples = 50000) {
-  if (order < 0 || order > 3) throw new Error('Correction order must be between 0 and 3.');
+  if (order < 0 || order > 5) throw new Error('Correction order must be between 0 and 5.');
   const termCount = (order + 1) * (order + 2) / 2, ata = Array.from({ length: termCount }, () => new Float64Array(termCount)), atbx = new Float64Array(termCount), atby = new Float64Array(termCount);
   let validTotal = 0; for (let i = 0; i < ipdX.length; i += 1) if (Number.isFinite(ipdX[i]) && Number.isFinite(ipdY[i])) validTotal += 1;
   if (validTotal < termCount) throw new Error('Not enough valid IPD points for correction fit.');

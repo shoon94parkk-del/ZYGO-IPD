@@ -56,8 +56,17 @@ Included analysis:
 - Z / IPD X / IPD Y / magnitude / residual maps
 - physical mm coordinate inspection and cross-sections
 - low-order 2-D polynomial vector-field fitting
+- 0th–5th order polynomial vector-field fitting and residual comparison
+- radial / tangential IPD decomposition
+- optional sparse wafer vector overlay
+- center / mid / edge radial-band metrics
+- low-order Zernike wafer-shape signature
 - before/after RMS, max and P95 metrics
 - local JSON / CSV export
+
+The wafer canvas is always square and represents a nominal 300 × 300 mm
+coordinate frame. Rectangular or partial measurement grids are centered inside
+that frame without stretching their physical X/Y scale.
 
 The low-order correction is a research approximation for quantifying correctable low-spatial-frequency components. It is **not** a proprietary exposure-tool correction model.
 

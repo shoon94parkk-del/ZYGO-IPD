@@ -1,4 +1,4 @@
-import { parseZygoXYZ, resolvePitch, subtractReference, computeIPD, fitLowOrderCorrection, fieldMetrics, finiteRange } from './core.mjs';
+import { parseZygoXYZ, resolvePitch, subtractReference, computeIPD, decomposeRadialTangential, radialBandMetrics, decomposeZernike, fitLowOrderCorrection, fieldMetrics, finiteRange } from './core.mjs';
 
 let dataset = null, reference = null, latest = null;
 self.onmessage = async (event) => {
@@ -11,12 +11,16 @@ self.onmessage = async (event) => {
       if (!dataset) throw new Error('Load a ZYGO XYZ file first.');
       const settings = payload, pitch = resolvePitch(dataset, settings.manualPitchMm || null, 300), z = subtractReference(dataset.zUm, reference?.zUm || null);
       const ipd = computeIPD(z, dataset.width, dataset.height, pitch.pitchMm, settings.coeffX, settings.coeffY, settings.sigmaPx);
+      const polar = decomposeRadialTangential(ipd.ipdX, ipd.ipdY, dataset.width, dataset.height);
       const corr = fitLowOrderCorrection(ipd.ipdX, ipd.ipdY, dataset.width, dataset.height, settings.correctionOrder);
       const before = fieldMetrics(ipd.ipdX, ipd.ipdY), after = fieldMetrics(corr.residualX, corr.residualY);
-      latest = { z, ipd, corr, pitch, before, after, settings };
+      const bands = radialBandMetrics(ipd.ipdX, ipd.ipdY, dataset.width, dataset.height, pitch.pitchMm);
+      const zernike = decomposeZernike(ipd.zUsed, dataset.width, dataset.height, pitch.pitchMm);
+      latest = { z, ipd, polar, corr, pitch, before, after, bands, zernike, settings };
       const result = { meta: metadata(dataset), referenceName: reference?.sourceName || null, pitch, before, after, reductionPct: Number.isFinite(before.rms) && before.rms !== 0 ? (1 - after.rms / before.rms) * 100 : Number.NaN, fitSamples: corr.usedSamples,
-        arrays: { z: toF32(z), ipdX: toF32(ipd.ipdX), ipdY: toF32(ipd.ipdY), magnitude: toF32(ipd.magnitude), residualX: toF32(corr.residualX), residualY: toF32(corr.residualY), residualMagnitude: toF32(corr.residualMagnitude) },
-        ranges: { z: finiteRange(z), ipdX: signedRange(ipd.ipdX), ipdY: signedRange(ipd.ipdY), magnitude: finiteRange(ipd.magnitude, 0, 0.98), residualX: signedRange(corr.residualX), residualY: signedRange(corr.residualY), residualMagnitude: finiteRange(corr.residualMagnitude, 0, 0.98) } };
+        bands, zernike,
+        arrays: { z: toF32(z), ipdX: toF32(ipd.ipdX), ipdY: toF32(ipd.ipdY), magnitude: toF32(ipd.magnitude), radial: toF32(polar.radial), tangential: toF32(polar.tangential), residualX: toF32(corr.residualX), residualY: toF32(corr.residualY), residualMagnitude: toF32(corr.residualMagnitude) },
+        ranges: { z: finiteRange(z), ipdX: signedRange(ipd.ipdX), ipdY: signedRange(ipd.ipdY), magnitude: finiteRange(ipd.magnitude, 0, 0.98), radial: signedRange(polar.radial), tangential: signedRange(polar.tangential), residualX: signedRange(corr.residualX), residualY: signedRange(corr.residualY), residualMagnitude: finiteRange(corr.residualMagnitude, 0, 0.98) } };
       self.postMessage({ type: 'analysis', payload: result }, Object.values(result.arrays).map((a) => a.buffer)); return;
     }
     if (type === 'export-summary') { if (!latest || !dataset) throw new Error('Run analysis first.'); self.postMessage({ type: 'summary', payload: buildSummary() }); return; }
@@ -28,5 +32,5 @@ function metadata(d) { const pitch = resolvePitch(d, null, 300); return { source
 function signedRange(a) { const r = finiteRange(a), m = Math.max(Math.abs(r.min), Math.abs(r.max)); return { min: -m, max: m }; }
 function toF32(a) { const out = new Float32Array(a.length); for (let i = 0; i < a.length; i += 1) out[i] = a[i]; return out; }
 function baseName(name) { return String(name || 'measurement').replace(/\.xyz$/i, '').replace(/[^a-zA-Z0-9._-]+/g, '_'); }
-function buildSummary() { return { file: dataset.sourceName, reference: reference?.sourceName || null, grid: { width: dataset.width, height: dataset.height, validPoints: dataset.validCount }, zUnit: 'micron', pitchMm: latest.pitch.pitchMm, pitchSource: latest.pitch.source, spanMm: { x: latest.pitch.spanX, y: latest.pitch.spanY }, settings: latest.settings, metricsBefore: latest.before, metricsAfter: latest.after, rmsReductionPct: (1 - latest.after.rms / latest.before.rms) * 100, generatedAt: new Date().toISOString(), privacy: 'Computed locally in browser; source XYZ was not uploaded.' }; }
-function buildCsv() { const { width, height } = dataset, p = latest.pitch.pitchMm, z = latest.z, { ipdX, ipdY } = latest.ipd, { residualX, residualY } = latest.corr, rows = ['x_mm,y_mm,z_um,ipd_x,ipd_y,residual_x,residual_y'], cx = (width - 1) / 2, cy = (height - 1) / 2; for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) { const i = y * width + x; if (!Number.isFinite(z[i])) continue; rows.push([((x - cx) * p).toFixed(6), ((y - cy) * p).toFixed(6), z[i], ipdX[i], ipdY[i], residualX[i], residualY[i]].join(',')); } return rows.join('\n'); }
+function buildSummary() { return { file: dataset.sourceName, reference: reference?.sourceName || null, grid: { width: dataset.width, height: dataset.height, validPoints: dataset.validCount }, zUnit: 'micron', pitchMm: latest.pitch.pitchMm, pitchSource: latest.pitch.source, spanMm: { x: latest.pitch.spanX, y: latest.pitch.spanY }, settings: latest.settings, metricsBefore: latest.before, metricsAfter: latest.after, radialBands: latest.bands, zernike: latest.zernike, rmsReductionPct: (1 - latest.after.rms / latest.before.rms) * 100, generatedAt: new Date().toISOString(), modelNotice: 'Gradient/polynomial/Zernike outputs are research diagnostics, not a verified scanner-vendor correction model.', privacy: 'Computed locally in browser; source XYZ was not uploaded.' }; }
+function buildCsv() { const { width, height } = dataset, p = latest.pitch.pitchMm, z = latest.z, { ipdX, ipdY } = latest.ipd, { radial, tangential } = latest.polar, { residualX, residualY } = latest.corr, rows = ['x_mm,y_mm,z_um,ipd_x,ipd_y,ipd_radial,ipd_tangential,residual_x,residual_y'], cx = (width - 1) / 2, cy = (height - 1) / 2; for (let y = 0; y < height; y += 1) for (let x = 0; x < width; x += 1) { const i = y * width + x; if (!Number.isFinite(z[i])) continue; rows.push([((x - cx) * p).toFixed(6), ((y - cy) * p).toFixed(6), z[i], ipdX[i], ipdY[i], radial[i], tangential[i], residualX[i], residualY[i]].join(',')); } return rows.join('\n'); }

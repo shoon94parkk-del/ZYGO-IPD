@@ -3,49 +3,59 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="color-scheme" content="dark light" />
+  <meta name="color-scheme" content="dark" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'none'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
-  <title>ZYGO IPD Lab</title>
+  <title>ZYGO IPD Lab · 300 mm wafer analytics</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
+  <a class="skip-link" href="#mainContent">분석 화면으로 건너뛰기</a>
   <header class="topbar">
-    <div><div class="eyebrow">300 mm wafer metrology</div><h1>ZYGO IPD Lab</h1></div>
-    <div class="privacy-badge" title="CSP connect-src 'none': 분석 중 외부 네트워크 요청을 차단합니다."><span class="dot"></span> Local-only analysis</div>
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span><div><div class="eyebrow">300 mm wafer metrology</div><h1>ZYGO IPD Lab</h1></div></div>
+    <div class="top-actions"><span class="model-badge">Research model</span><div class="privacy-badge" title="CSP connect-src 'none': 분석 중 외부 네트워크 요청을 차단합니다."><span class="dot"></span>브라우저 로컬 분석</div></div>
   </header>
-  <main>
-    <section class="upload-grid">
-      <label class="dropzone" id="dropzone" for="fileInput"><input id="fileInput" type="file" accept=".xyz,text/plain" /><div class="drop-icon">↓</div><strong>ZYGO .xyz 파일을 놓거나 선택</strong><span>파일은 이 브라우저에서만 읽고 계산합니다. 서버 업로드 없음.</span></label>
-      <div class="privacy-card"><strong>Privacy architecture</strong><p>정적 HTML/JS + Web Worker. 서버 API, analytics, telemetry를 사용하지 않습니다.</p><code>connect-src 'none'</code></div>
+  <main id="mainContent">
+    <section class="intro" aria-labelledby="introTitle">
+      <div class="intro-copy"><div class="eyebrow">Shape → displacement diagnostics</div><h2 id="introTitle">웨이퍼 형상을, 보정 가능한 신호로.</h2><p>ZYGO XYZ를 열면 실제 pitch로 IPD를 계산하고 radial·tangential·edge·Zernike 관점에서 한 화면에 비교합니다.</p></div>
+      <label class="dropzone" id="dropzone" for="fileInput">
+        <input id="fileInput" type="file" accept=".xyz,text/plain" />
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3" /></svg>
+        <span><strong>ZYGO .xyz 열기</strong><small>드래그하거나 클릭 · 서버 업로드 없음</small></span>
+      </label>
+      <div class="trust-strip"><span><b>01</b> CameraRes 자동 인식</span><span><b>02</b> Web Worker 계산</span><span><b>03</b> 로컬 내보내기</span><code>connect-src 'none'</code></div>
     </section>
-    <section id="workspace" class="workspace hidden">
-      <aside class="sidebar">
-        <div class="panel"><div class="panel-head"><h2>Dataset</h2><button id="resetBtn" class="ghost">Reset</button></div><dl id="datasetMeta" class="meta-grid"></dl><div id="pitchAlert" class="alert hidden"></div></div>
-        <div class="panel controls">
-          <h2>Analysis parameters</h2>
-          <label>Pitch source<select id="pitchMode"><option value="auto">ZYGO CameraRes (auto)</option><option value="manual">Manual override</option></select></label>
-          <label id="manualPitchWrap" class="hidden">Manual pitch (mm/pixel)<input id="manualPitch" type="number" min="0.000001" step="0.00001" value="0.39535" /></label>
-          <div class="two-col"><label>Cx<input id="coeffX" type="number" step="0.01" value="1" /></label><label>Cy<input id="coeffY" type="number" step="0.01" value="1" /></label></div>
-          <label>Smoothing σ (pixel)<input id="sigma" type="range" min="0" max="3" step="0.25" value="0" /><output id="sigmaOut">0</output></label>
-          <label>Low-order correction<select id="corrOrder"><option value="0">Order 0 — offset</option><option value="1">Order 1 — linear</option><option value="2" selected>Order 2 — quadratic</option><option value="3">Order 3 — cubic</option></select></label>
-          <label class="reference-label">Reference shape (optional)<input id="referenceInput" type="file" accept=".xyz,text/plain" /></label><div id="referenceStatus" class="subtle">No reference loaded</div>
-          <button id="runBtn" class="primary">Recalculate</button>
-        </div>
-        <div class="panel"><h2>Export</h2><div class="button-row"><button id="summaryBtn" class="secondary">Summary JSON</button><button id="csvBtn" class="secondary">Full CSV</button></div><p class="subtle">Export도 브라우저에서 생성됩니다.</p></div>
+    <section id="workspace" class="workspace hidden" aria-live="polite">
+      <aside class="sidebar" aria-label="분석 설정">
+        <section class="panel dataset-panel"><div class="panel-head"><div><div class="section-kicker">Input</div><h2>데이터셋</h2></div><button id="resetBtn" class="ghost">새 파일</button></div><dl id="datasetMeta" class="meta-grid"></dl><div id="pitchAlert" class="alert hidden"></div></section>
+        <section class="panel controls">
+          <div><div class="section-kicker">Model</div><h2>분석 조건</h2></div>
+          <label>물리 pitch<select id="pitchMode"><option value="auto">CameraRes 자동</option><option value="manual">수동 입력</option></select></label>
+          <label id="manualPitchWrap" class="hidden">Pitch (mm/pixel)<input id="manualPitch" type="number" min="0.000001" step="0.00001" value="0.39535" /></label>
+          <div class="two-col"><label>Cx <span class="hint">X 보정계수</span><input id="coeffX" type="number" step="0.01" value="1" /></label><label>Cy <span class="hint">Y 보정계수</span><input id="coeffY" type="number" step="0.01" value="1" /></label></div>
+          <label>Smoothing σ <span class="hint">NaN-aware · pixel</span><div class="range-row"><input id="sigma" type="range" min="0" max="4" step="0.25" value="0" /><output id="sigmaOut">0</output></div></label>
+          <label>Vector-field 보정 차수<select id="corrOrder"><option value="0">0 · offset</option><option value="1">1 · linear</option><option value="2" selected>2 · quadratic</option><option value="3">3 · cubic</option><option value="4">4 · quartic</option><option value="5">5 · quintic</option></select></label>
+          <label class="reference-label">기준 형상 <span class="hint">선택 사항 · Z − Zref</span><input id="referenceInput" type="file" accept=".xyz,text/plain" /></label><div id="referenceStatus" class="subtle">기준 파일 없음</div>
+          <button id="runBtn" class="primary">분석 다시 계산</button>
+        </section>
+        <section class="panel export-panel"><div><div class="section-kicker">Output</div><h2>결과 내보내기</h2></div><div class="button-row"><button id="summaryBtn" class="secondary">요약 JSON</button><button id="csvBtn" class="secondary">전체 CSV</button></div><p class="subtle">원본과 결과는 외부로 전송되지 않습니다.</p></section>
       </aside>
       <div class="content">
-        <section id="metrics" class="metrics"></section>
+        <section id="metrics" class="metrics" aria-label="주요 지표"></section>
         <section class="panel map-panel">
-          <div class="map-toolbar"><div><div class="eyebrow">Physical wafer map</div><h2 id="mapTitle">Z surface</h2></div><div class="segmented" id="mapTabs"><button data-map="z" class="active">Z</button><button data-map="ipdX">IPD X</button><button data-map="ipdY">IPD Y</button><button data-map="magnitude">|IPD|</button><button data-map="residualMagnitude">Residual</button></div></div>
-          <div class="canvas-shell"><canvas id="heatmap" width="900" height="700"></canvas><canvas id="overlay" width="900" height="700"></canvas><div id="tooltip" class="tooltip hidden"></div></div>
-          <div class="legend-row"><span id="legendMin">–</span><div id="legendBar" class="legend"></div><span id="legendMax">–</span></div><div class="map-foot"><span id="coordReadout">Click map for cross-section</span><span id="mapUnit"></span></div>
+          <div class="map-toolbar">
+            <div><div class="section-kicker">Wafer map · equal mm scale</div><h2 id="mapTitle">Z surface</h2><p id="mapDescription" class="subtle">측정 형상 높이</p></div>
+            <div class="map-actions"><label class="toggle"><input id="vectorToggle" type="checkbox" /><span></span>벡터 표시</label><div class="segmented" id="mapTabs" role="tablist" aria-label="맵 종류"><button data-map="z" class="active" role="tab" aria-selected="true">Z</button><button data-map="ipdX" role="tab">IPD X</button><button data-map="ipdY" role="tab">IPD Y</button><button data-map="magnitude" role="tab">Magnitude</button><button data-map="radial" role="tab">Radial</button><button data-map="tangential" role="tab">Tangential</button><button data-map="residualMagnitude" role="tab">Residual</button></div></div>
+          </div>
+          <div class="wafer-stage"><div class="axis-y">Y (mm)</div><div class="canvas-shell"><canvas id="heatmap" width="760" height="760" aria-label="300 mm wafer heatmap"></canvas><canvas id="overlay" width="760" height="760" tabindex="0" aria-label="웨이퍼 위치 선택. 방향키로 이동할 수 있습니다."></canvas><div id="tooltip" class="tooltip hidden"></div></div><div class="axis-x">X (mm)</div></div>
+          <div class="legend-row"><span id="legendMin">–</span><div id="legendBar" class="legend"></div><span id="legendMax">–</span></div><div class="map-foot"><span id="coordReadout">맵을 클릭해 단면 위치 선택</span><span id="mapUnit"></span></div>
         </section>
-        <section class="analysis-grid"><div class="panel"><div class="panel-head"><h2>Cross-section</h2><span id="sectionLabel" class="subtle">center</span></div><canvas id="sectionChart" width="820" height="300"></canvas></div><div class="panel"><h2>Before / after</h2><div id="comparison" class="comparison"></div></div></section>
-        <section class="panel"><div class="panel-head"><h2>Engineering notes</h2><span class="subtle">calculation assumptions are explicit</span></div><ul class="notes"><li>ZYGO XYZ Format 1의 Z 값은 µm, CameraRes는 m/pixel로 읽습니다.</li><li>IPD 기본식: <code>IPDₓ = Cₓ · ∂Z/∂x</code>, <code>IPDᵧ = Cᵧ · ∂Z/∂y</code>.</li><li>기울기는 실제 pitch(mm/pixel)를 사용하므로 C=1일 때 slope 단위는 µm/mm입니다.</li><li>Low-order correction은 연구용 polynomial vector-field fitting이며 특정 scanner vendor 모델을 의미하지 않습니다.</li></ul></section>
+        <section class="analysis-grid"><div class="panel"><div class="panel-head"><div><div class="section-kicker">Probe</div><h2>선택 위치 단면</h2></div><span id="sectionLabel" class="subtle">center</span></div><canvas id="sectionChart" width="820" height="300" aria-label="X/Y 단면 그래프"></canvas></div><div class="panel"><div class="section-kicker">Correction</div><h2>보정 전 / 후</h2><div id="comparison" class="comparison"></div></div></section>
+        <section class="diagnostics-grid"><div class="panel"><div class="panel-head"><div><div class="section-kicker">Radius bands</div><h2>Center / Mid / Edge</h2></div><span class="subtle">0–60 · 60–85 · 85–100%</span></div><div id="edgeStats" class="edge-stats"></div></div><div class="panel"><div class="panel-head"><div><div class="section-kicker">Shape signature</div><h2>Zernike 성분</h2></div><span id="zernikeResidual" class="subtle"></span></div><div id="zernikeList" class="zernike-list"></div></div></section>
+        <section class="panel methods-panel"><div class="panel-head"><div><div class="section-kicker">Method guide</div><h2>분석 방법과 해석 범위</h2></div><span class="model-badge">Vendor-neutral</span></div><div class="method-grid"><article><b>Gradient IPD</b><p><code>Cx·∂Z/∂x</code>, <code>Cy·∂Z/∂y</code>. 실제 pitch 기반의 기본 proxy입니다.</p></article><article><b>Radial / Tangential</b><p>중심 기준 벡터 성분을 분리해 팽창·수축과 회전형 signature를 구분합니다.</p></article><article><b>Polynomial residual</b><p>0–5차 global vector field를 적합해 보정 가능 성분과 residual을 비교합니다.</p></article><article><b>Zernike shape</b><p>defocus, astigmatism, coma 등 저차 형상 성분을 분해해 원인 탐색을 돕습니다.</p></article></div><p class="science-note">비축대칭 응력에서는 단순 gradient 모델의 정확도가 제한될 수 있습니다. 이 화면의 결과는 연구·진단용이며, scanner 고유 CPE 또는 실제 nm IPD로 사용하려면 사내 overlay 데이터로 Cx/Cy 및 모델을 검증해야 합니다.</p></section>
       </div>
     </section>
   </main>
-  <div id="busy" class="busy hidden"><div class="spinner"></div><span>Analyzing locally…</span></div><div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+  <div id="busy" class="busy hidden" role="status" aria-live="assertive"><div class="spinner"></div><span>브라우저에서 분석 중…</span></div><div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
   <script type="module" src="./app.mjs"></script>
 </body>
 </html>
