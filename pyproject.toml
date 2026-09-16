@@ -4,13 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zygo-ipd"
-version = "0.2.0"
-description = "Browser-local ZYGO XYZ wafer-shape to IPD analysis"
+version = "0.3.0"
+description = "ZYGO XYZ wafer-shape to IPD analysis with Streamlit-compatible upload"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
   "numpy>=1.26",
   "scipy>=1.11",
+  "plotly>=5.18",
+  "streamlit>=1.37",
 ]
 
 [project.optional-dependencies]
