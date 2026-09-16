@@ -1,40 +1,67 @@
 # Project context / handoff
 
-## 목적
+## Objective
 
-1. ZYGO 장비로 척에 흡착된 wafer의 형상 `Z=f(x,y)`를 계측한다.
-2. 형상의 국부 기울기로부터 IPD를 추정한다.
-3. 보정 전 IPD와 scanner-like correctable component를 분리한다.
-4. 보정 후 residual을 RMS / max / map으로 정량화한다.
-5. 향후 hybrid wafer bonding 후 distortion과 최신 노광기 보정 가능량을 연결한다.
+1. Measure a chucked 300 mm wafer with ZYGO and obtain `Z=f(x,y)`.
+2. Parse the ZYGO physical pixel resolution (`CameraRes`) and convert the grid to real mm coordinates.
+3. Estimate IPD from local wafer-shape slope.
+4. Separate low-order scanner-like correctable content from residual IPD.
+5. Quantify before/after RMS, P95, max and spatial maps.
+6. Extend later to hybrid bonding before/after delta, shot/CPE decomposition and scanner compensation studies.
 
-## 과거 논의에서 확정된 기본식
+## Confirmed ZYGO XYZ Format 1 interpretation
+
+Header line 4: `PhaseOriginX PhaseOriginY PhaseWidth PhaseHeight`.
+
+Header line 8 includes: `Source IntfScaleFactor WavelengthIn NumericAperture ObliquityFactor Magnification CameraRes TimeStamp`.
+
+`CameraRes` is meters/pixel. Connected phase XYZ values are microns.
+
+Validated sample:
 
 ```text
-IPD_x = C_x * dZ/dx
-IPD_y = C_y * dZ/dy
+PhaseOrigin = (220, 179)
+Phase grid = 752 × 753
+CameraRes = 0.00039535 m/pixel
+Physical pitch = 0.39535 mm/pixel
+Grid center-to-center span = 296.90785 × 297.30320 mm
+Valid points = 444,969
 ```
 
-과거 구현 방향은 다음 순서였다.
+This is consistent with a nominal 300 mm wafer while leaving room for edge No-Data / ROI effects.
 
-1. 기존 계산 재현
-2. 공통/shot별 CPE 성분 분석
-3. 계수, smoothing, 미분간격 민감도 분석
-4. 보정 전/후 RMS와 최대 잔류량을 map/UI로 비교
+## Baseline IPD model
 
-초기 모듈명 아이디어:
+`IPD_x = C_x * dZ/dx`, `IPD_y = C_y * dZ/dy`.
 
-- `zygo_loader`
-- `ipd_calc`
-- `kparam_model`
-- `fit_residual`
+The derivative denominator is the real pitch in mm. With C=1, the raw slope is µm/mm. Cx/Cy remain explicit calibration factors.
 
-현재 repository에서는 이를 각각 `parser.py`, `ipd.py`, `correction.py`, `metrics.py` 중심으로 정리했다.
+## Browser-only architecture
 
-## 중요한 해석 주의사항
+The deployed product is a static browser app. Raw XYZ is read by `File.text()` and sent only to a local Web Worker. A Content Security Policy disables browser network connections during analysis (`connect-src 'none'`). There is no application backend and no analytics.
 
-- `.xyz`의 X/Y index를 실제 거리로 바꾸는 scale은 장비 export 조건을 확인해야 한다.
-- Z 값의 단위 역시 header/export setting 확인이 필요하다.
-- Cx/Cy는 실제 IPD 단위로 환산하는 calibration 계수이며 임의로 고정하면 안 된다.
-- reference shape subtraction은 API에는 들어가 있지만 실제 reference 정의/registration 절차는 추가 검증이 필요하다.
-- 상용 scanner correction의 실제 parameter set과 제약 조건은 별도 장비 specification에 맞춰야 한다.
+The old Streamlit upload UI is not part of the production architecture because server-side upload would violate the local-only data requirement.
+
+## Current analysis surfaces
+
+- drag/drop local XYZ
+- metadata and pitch/span validation
+- manual pitch override
+- Cx/Cy
+- NaN-aware Gaussian smoothing
+- optional local reference file
+- Z / IPD X / IPD Y / magnitude / residual maps
+- click-to-inspect physical coordinates and cross-sections
+- low-order polynomial correction (0–3)
+- before/after RMS, P95, max
+- local JSON/CSV export
+
+## Next scientific work
+
+- validate Cx/Cy against existing internal IPD results
+- improve wafer-edge derivative treatment and configurable edge exclusion
+- implement wafer-global vs shot-local/CPE decomposition
+- add vector-arrow maps and shot grid overlays
+- add PSD / radial PSD and correctable spatial-frequency bands
+- register bonding pre/post datasets and generate delta maps
+- map verified scanner correction terms only when vendor/engineering definitions are available

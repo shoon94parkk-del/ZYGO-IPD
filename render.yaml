@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: zygo-ipd-lab
+    runtime: static
+    repo: https://github.com/shoon94parkk-del/ZYGO-IPD
+    branch: main
+    buildCommand: echo "Static browser-only ZYGO IPD app"
+    staticPublishPath: ./web
+    autoDeployTrigger: commit

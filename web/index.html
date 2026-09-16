@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark light" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'none'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
+  <title>ZYGO IPD Lab</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div><div class="eyebrow">300 mm wafer metrology</div><h1>ZYGO IPD Lab</h1></div>
+    <div class="privacy-badge" title="CSP connect-src 'none': 분석 중 외부 네트워크 요청을 차단합니다."><span class="dot"></span> Local-only analysis</div>
+  </header>
+  <main>
+    <section class="upload-grid">
+      <label class="dropzone" id="dropzone" for="fileInput"><input id="fileInput" type="file" accept=".xyz,text/plain" /><div class="drop-icon">↓</div><strong>ZYGO .xyz 파일을 놓거나 선택</strong><span>파일은 이 브라우저에서만 읽고 계산합니다. 서버 업로드 없음.</span></label>
+      <div class="privacy-card"><strong>Privacy architecture</strong><p>정적 HTML/JS + Web Worker. 서버 API, analytics, telemetry를 사용하지 않습니다.</p><code>connect-src 'none'</code></div>
+    </section>
+    <section id="workspace" class="workspace hidden">
+      <aside class="sidebar">
+        <div class="panel"><div class="panel-head"><h2>Dataset</h2><button id="resetBtn" class="ghost">Reset</button></div><dl id="datasetMeta" class="meta-grid"></dl><div id="pitchAlert" class="alert hidden"></div></div>
+        <div class="panel controls">
+          <h2>Analysis parameters</h2>
+          <label>Pitch source<select id="pitchMode"><option value="auto">ZYGO CameraRes (auto)</option><option value="manual">Manual override</option></select></label>
+          <label id="manualPitchWrap" class="hidden">Manual pitch (mm/pixel)<input id="manualPitch" type="number" min="0.000001" step="0.00001" value="0.39535" /></label>
+          <div class="two-col"><label>Cx<input id="coeffX" type="number" step="0.01" value="1" /></label><label>Cy<input id="coeffY" type="number" step="0.01" value="1" /></label></div>
+          <label>Smoothing σ (pixel)<input id="sigma" type="range" min="0" max="3" step="0.25" value="0" /><output id="sigmaOut">0</output></label>
+          <label>Low-order correction<select id="corrOrder"><option value="0">Order 0 — offset</option><option value="1">Order 1 — linear</option><option value="2" selected>Order 2 — quadratic</option><option value="3">Order 3 — cubic</option></select></label>
+          <label class="reference-label">Reference shape (optional)<input id="referenceInput" type="file" accept=".xyz,text/plain" /></label><div id="referenceStatus" class="subtle">No reference loaded</div>
+          <button id="runBtn" class="primary">Recalculate</button>
+        </div>
+        <div class="panel"><h2>Export</h2><div class="button-row"><button id="summaryBtn" class="secondary">Summary JSON</button><button id="csvBtn" class="secondary">Full CSV</button></div><p class="subtle">Export도 브라우저에서 생성됩니다.</p></div>
+      </aside>
+      <div class="content">
+        <section id="metrics" class="metrics"></section>
+        <section class="panel map-panel">
+          <div class="map-toolbar"><div><div class="eyebrow">Physical wafer map</div><h2 id="mapTitle">Z surface</h2></div><div class="segmented" id="mapTabs"><button data-map="z" class="active">Z</button><button data-map="ipdX">IPD X</button><button data-map="ipdY">IPD Y</button><button data-map="magnitude">|IPD|</button><button data-map="residualMagnitude">Residual</button></div></div>
+          <div class="canvas-shell"><canvas id="heatmap" width="900" height="700"></canvas><canvas id="overlay" width="900" height="700"></canvas><div id="tooltip" class="tooltip hidden"></div></div>
+          <div class="legend-row"><span id="legendMin">–</span><div id="legendBar" class="legend"></div><span id="legendMax">–</span></div><div class="map-foot"><span id="coordReadout">Click map for cross-section</span><span id="mapUnit"></span></div>
+        </section>
+        <section class="analysis-grid"><div class="panel"><div class="panel-head"><h2>Cross-section</h2><span id="sectionLabel" class="subtle">center</span></div><canvas id="sectionChart" width="820" height="300"></canvas></div><div class="panel"><h2>Before / after</h2><div id="comparison" class="comparison"></div></div></section>
+        <section class="panel"><div class="panel-head"><h2>Engineering notes</h2><span class="subtle">calculation assumptions are explicit</span></div><ul class="notes"><li>ZYGO XYZ Format 1의 Z 값은 µm, CameraRes는 m/pixel로 읽습니다.</li><li>IPD 기본식: <code>IPDₓ = Cₓ · ∂Z/∂x</code>, <code>IPDᵧ = Cᵧ · ∂Z/∂y</code>.</li><li>기울기는 실제 pitch(mm/pixel)를 사용하므로 C=1일 때 slope 단위는 µm/mm입니다.</li><li>Low-order correction은 연구용 polynomial vector-field fitting이며 특정 scanner vendor 모델을 의미하지 않습니다.</li></ul></section>
+      </div>
+    </section>
+  </main>
+  <div id="busy" class="busy hidden"><div class="spinner"></div><span>Analyzing locally…</span></div><div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+  <script type="module" src="./app.mjs"></script>
+</body>
+</html>
