@@ -2,42 +2,39 @@
 setlocal
 cd /d "%~dp0"
 
-REM Make the src/ package importable without installing the project itself.
-set "PYTHONPATH=%CD%\src;%PYTHONPATH%"
-
 echo ========================================
-echo   ZYGO IPD Lab - Local Streamlit
+echo   ZYGO IPD Lab - Original Browser UI
 echo   http://127.0.0.1:8501
 echo ========================================
 echo.
 
-where python >nul 2>nul
-if errorlevel 1 (
-  echo [ERROR] Python was not found in PATH.
-  echo Install/use the same Python environment as your existing Streamlit app.
-  pause
-  exit /b 1
-)
-
-python -c "import streamlit, numpy, scipy, plotly" >nul 2>nul
-if errorlevel 1 (
-  echo [INFO] Required Python packages are missing. Trying to install this project...
-  python -m pip install -e .
+REM Use the existing browser UI in web/ exactly as-is.
+REM No Streamlit or project dependency installation is required.
+where py >nul 2>nul
+if not errorlevel 1 (
+  set "PYTHON_CMD=py -3"
+) else (
+  where python >nul 2>nul
   if errorlevel 1 (
-    echo.
-    echo [ERROR] Dependency installation failed.
-    echo If company network blocks pip, install Streamlit/Numpy/SciPy/Plotly using the approved internal Python package source.
+    echo [ERROR] Python was not found in PATH.
+    echo Python 3 is required only to serve the local web folder.
     pause
     exit /b 1
   )
+  set "PYTHON_CMD=python"
 )
 
-echo [OK] Starting local server on 127.0.0.1:8501
-python -m streamlit run app.py --server.address 127.0.0.1 --server.port 8501 --server.headless true --browser.gatherUsageStats false
+echo [OK] Serving the existing web UI from .\web
+
+echo [OK] Opening http://127.0.0.1:8501
+start "" powershell -NoProfile -WindowStyle Hidden -Command "Start-Sleep -Milliseconds 800; Start-Process 'http://127.0.0.1:8501/'"
+
+%PYTHON_CMD% -m http.server 8501 --bind 127.0.0.1 --directory web
 
 if errorlevel 1 (
   echo.
-  echo [ERROR] Streamlit stopped with an error.
+  echo [ERROR] Local web server stopped with an error.
+  echo If port 8501 is already in use, close the other local app and run this file again.
   pause
 )
 
