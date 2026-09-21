@@ -2,6 +2,10 @@
 
 Browser-local ZYGO wafer-shape → IPD analysis for 300 mm wafers.
 
+## Development memory
+
+Before changing code or analysis behavior, read `AGENTS.md`, `docs/project-memory.md`, `docs/regression-guardrails.md`, and `docs/decision-log.md`. The localhost 8501/original browser UI path, physical scaling, unit provenance, and privacy rules are protected regression contracts.
+
 ## Web app
 
 The deployable product lives under `web/` and performs all `.xyz` parsing and analysis **inside the browser**. Raw measurement files are never uploaded to an API or application server.
