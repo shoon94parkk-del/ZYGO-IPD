@@ -21,3 +21,15 @@
 - Any scanner correction implementation must distinguish generic research approximation from verified vendor behavior.
 - Do not infer final IPD physical units from Cx/Cy without a validated calibration definition.
 - Add tests whenever parser conventions, physical scaling, derivative logic, masking, calibration behavior, or correction fitting changes.
+
+
+## Durable project memory
+
+Before changing behavior, also read:
+- `docs/project-memory.md`
+- `docs/regression-guardrails.md`
+- `docs/decision-log.md`
+
+The repository is the memory. Search prior decisions/tests before editing, add regression coverage for behavioral fixes, and append the decision log when a scientific, privacy, launcher, or UI invariant changes.
+
+For real/company XYZ usage, `run_local.bat` + the existing `web/` UI on `127.0.0.1:8501` is the protected path. Do not replace it with the Streamlit launcher or silently redesign the UI.
